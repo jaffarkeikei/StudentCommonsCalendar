@@ -77,12 +77,35 @@ export default function Home() {
     setSelectedRoom(room);
     
     if (room === 'all') {
+      // Show all events
       setFilteredEvents(availableEvents);
+      console.log('Showing all events:', availableEvents.length);
     } else {
-      const filtered = availableEvents.filter((event) => 
-        event.room === room
-      );
-      setFilteredEvents(filtered);
+      // Only include events that are for the selected room
+      const roomEvents = availableEvents.filter(event => event.room === room);
+      
+      // Log details for debugging
+      console.log(`Filtering for room: ${room}`);
+      console.log(`Total events available: ${availableEvents.length}`);
+      console.log(`Events for this room: ${roomEvents.length}`);
+      
+      // Log breakdown of event types
+      const availableSlotsCount = roomEvents.filter(event => event.isAvailable).length;
+      const bookedSlotsCount = roomEvents.filter(event => !event.isAvailable).length;
+      console.log(`Available slots for ${room}: ${availableSlotsCount}`);
+      console.log(`Booked slots for ${room}: ${bookedSlotsCount}`);
+      
+      // Log specific details about booked events
+      const bookedEvents = roomEvents.filter(event => !event.isAvailable);
+      bookedEvents.forEach((event, i) => {
+        console.log(`Booked event ${i+1}: "${event.title}" at ${format(event.start, 'MMM d, h:mm a')} - ${format(event.end, 'h:mm a')}`);
+      });
+      
+      if (roomEvents.length > 0) {
+        console.log('Sample event:', roomEvents[0]);
+      }
+      
+      setFilteredEvents(roomEvents);
     }
   };
 
@@ -147,15 +170,18 @@ export default function Home() {
               onSelectRoom={handleRoomFilter}
             />
             
-            <RoomDetails
-              selectedRoom={selectedRoom}
-              events={availableEvents}
-            />
+            {selectedRoom !== 'all' && (
+              <RoomDetails
+                selectedRoom={selectedRoom}
+                events={filteredEvents}
+              />
+            )}
             
             <div className="bg-white shadow-md rounded-lg p-4 mt-4">
               <h3 className="font-medium text-gray-800 mb-2">Stats</h3>
               <div className="text-sm">
                 <p className="mb-1">Total Available Slots: <span className="font-medium">{availableEvents.filter((e) => e.isAvailable).length}</span></p>
+                <p className="mb-1">Total Booked Slots: <span className="font-medium">{availableEvents.filter((e) => !e.isAvailable).length}</span></p>
                 <p className="mb-1">Total Rooms: <span className="font-medium">{rooms.length}</span></p>
                 <p className="mb-1">Filtered Results: <span className="font-medium">{filteredEvents.length}</span></p>
                 {formattedDate && (
