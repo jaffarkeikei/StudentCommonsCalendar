@@ -12,21 +12,36 @@ interface RoomFilterProps {
 const groupRoomsByFloor = (rooms: string[]) => {
   const floorGroups: { [floor: string]: string[] } = {};
   
+  // Initialize floor groups 1-5
+  for (let i = 1; i <= 5; i++) {
+    floorGroups[`Floor ${i}`] = [];
+  }
+  
+  // Ensure "Other" category exists
+  floorGroups['Other'] = [];
+  
   rooms.forEach(room => {
     // Extract floor number from room name (assuming pattern like "Room 214" where 2 is the floor)
     const floorMatch = room.match(/Room\s+(\d)(\d+)/i);
     if (floorMatch && floorMatch[1]) {
-      const floor = `Floor ${floorMatch[1]}`;
-      if (!floorGroups[floor]) {
-        floorGroups[floor] = [];
+      const floorNumber = parseInt(floorMatch[1]);
+      // Only floors 1-5 exist, other rooms go to "Other"
+      if (floorNumber >= 1 && floorNumber <= 5) {
+        const floor = `Floor ${floorNumber}`;
+        floorGroups[floor].push(room);
+      } else {
+        floorGroups['Other'].push(room);
       }
-      floorGroups[floor].push(room);
     } else {
       // If we can't determine floor, put in "Other" category
-      if (!floorGroups['Other']) {
-        floorGroups['Other'] = [];
-      }
       floorGroups['Other'].push(room);
+    }
+  });
+  
+  // Remove empty floor categories
+  Object.keys(floorGroups).forEach(floor => {
+    if (floorGroups[floor].length === 0) {
+      delete floorGroups[floor];
     }
   });
   
