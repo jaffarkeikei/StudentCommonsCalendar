@@ -24,25 +24,25 @@ interface CalendarProps {
 export const Calendar: React.FC<CalendarProps> = ({ events }) => {
   // Custom event styling
   const eventStyleGetter = (event: Event) => {
-    // For available rooms, just show a green block with no text
-    // For booked rooms, show a red block with the booking info
+    // For available rooms, use a seamless green background
+    // For booked rooms, show a contrasting red
     const style = {
-      backgroundColor: event.isAvailable ? '#10B981' : '#EF4444', // green for available, red for booked
-      borderRadius: '4px',
-      opacity: 0.85,
+      backgroundColor: event.isAvailable ? '#10B981' : '#EF4444', 
+      opacity: event.isAvailable ? 0.8 : 0.9,
       color: 'white',
-      border: '0px',
+      border: event.isAvailable ? 'none' : '1px solid #DC2626',
+      borderRadius: event.isAvailable ? '0' : '4px',
       display: 'block',
       overflow: 'hidden',
-      // If it's an available slot, make the title smaller/invisible 
       fontSize: event.isAvailable ? '0px' : '14px',
-      // Simplify content for available slots
-      paddingTop: event.isAvailable ? '0' : '2px'
+      paddingTop: event.isAvailable ? '0' : '2px',
+      // Remove margin to create seamless appearance
+      margin: event.isAvailable ? '0' : '1px',
     };
     
     return {
       style,
-      className: event.isAvailable ? 'available' : 'booked',
+      className: event.isAvailable ? 'available-slot' : 'booked-slot',
     };
   };
 
@@ -75,6 +75,47 @@ export const Calendar: React.FC<CalendarProps> = ({ events }) => {
 
   return (
     <div className="h-[700px] bg-white shadow-md rounded-lg p-4">
+      <style jsx global>{`
+        /* Custom styles to make available blocks seamless */
+        .rbc-event.available-slot {
+          box-shadow: none !important;
+          border: none !important;
+          margin: 0 !important;
+        }
+        
+        /* Remove border between time slots */
+        .rbc-time-content, .rbc-time-column {
+          border: none !important;
+        }
+        
+        .rbc-time-content > * + * > * {
+          border-left: none !important;
+        }
+        
+        /* Make row borders lighter */
+        .rbc-time-slot {
+          border-top: 1px solid rgba(220, 220, 220, 0.3) !important;
+        }
+        
+        /* Custom styles for booked rooms */
+        .rbc-event.booked-slot {
+          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+          z-index: 2;
+        }
+        
+        /* Improve time labels */
+        .rbc-time-gutter .rbc-label {
+          font-weight: 500;
+          color: #555;
+        }
+        
+        /* Better day headers */
+        .rbc-header {
+          padding: 10px;
+          font-weight: 600;
+          background-color: #f9fafb;
+        }
+      `}</style>
       <BigCalendar
         localizer={localizer}
         events={events}
