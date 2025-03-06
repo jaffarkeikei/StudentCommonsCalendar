@@ -1,0 +1,39 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --foreground-rgb: 0, 0, 0;
+  --background-start-rgb: 214, 219, 220;
+  --background-end-rgb: 255, 255, 255;
+}
+
+body {
+  color: rgb(var(--foreground-rgb));
+  background: white;
+}
+
+/* React Big Calendar custom styles */
+.rbc-calendar {
+  @apply shadow-md rounded-lg bg-white p-4;
+}
+
+.rbc-today {
+  @apply bg-blue-50;
+}
+
+.rbc-event {
+  @apply bg-green-500;
+}
+
+.rbc-event.booked {
+  @apply bg-red-500;
+}
+
+.rbc-toolbar button {
+  @apply bg-gray-100 hover:bg-gray-200 px-2 py-1 rounded;
+}
+
+.rbc-toolbar button.rbc-active {
+  @apply bg-blue-500 text-white;
+} 
