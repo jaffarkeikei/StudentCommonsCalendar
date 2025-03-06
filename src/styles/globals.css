@@ -23,6 +23,13 @@ body {
   @apply bg-blue-50;
 }
 
+/* Current time indicator - blue line */
+.rbc-current-time-indicator {
+  background-color: #3b82f6 !important; /* Blue color */
+  height: 2px !important; /* Make it slightly thicker */
+  z-index: 100; /* Ensure it appears above events */
+}
+
 /* Available room styling */
 .rbc-event.available-slot {
   @apply bg-green-500 shadow-none;
