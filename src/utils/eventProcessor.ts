@@ -1,4 +1,4 @@
-import { addDays } from 'date-fns';
+import { addDays, format, isSameDay, parseISO } from 'date-fns';
 
 interface BookedEvent {
   id: string;
@@ -28,16 +28,52 @@ const OPENING_HOUR = 9; // 9 AM
 const CLOSING_HOUR = 21; // 9 PM
 
 /**
+ * Group rooms by floor or pattern to create a more intuitive view
+ */
+const groupRoomsByCategory = (rooms: string[]): { [category: string]: string[] } => {
+  const floorGroups: { [floor: string]: string[] } = {};
+  
+  rooms.forEach(room => {
+    // Extract floor number from room name (assuming pattern like "Room 214" where 2 is the floor)
+    const floorMatch = room.match(/Room\s+(\d)(\d+)/i);
+    if (floorMatch && floorMatch[1]) {
+      const floor = `Floor ${floorMatch[1]}`;
+      if (!floorGroups[floor]) {
+        floorGroups[floor] = [];
+      }
+      floorGroups[floor].push(room);
+    } else {
+      // If we can't determine floor, put in "Other" category
+      if (!floorGroups['Other']) {
+        floorGroups['Other'] = [];
+      }
+      floorGroups['Other'].push(room);
+    }
+  });
+  
+  return floorGroups;
+};
+
+/**
  * Process booked events to generate available time slots
+ * with improved grouping and display
  */
 export const processEvents = (bookedEvents: BookedEvent[]): ProcessEventsResult => {
   // Extract unique rooms from the booked events
-  const uniqueRooms = Array.from(new Set(bookedEvents.map((event) => event.room)));
+  const uniqueRooms = Array.from(new Set(bookedEvents.map((event) => event.room)))
+    .filter(room => room !== 'Unknown Room');
   
   // If no rooms are found in events, define some default rooms
   const rooms = uniqueRooms.length > 0 
     ? uniqueRooms 
-    : ['Room 214', 'Room 215', 'Room 216', 'Room 217', 'Room 218'];
+    : ['Room 214', 'Room 215', 'Room 216', 'Room 217', 'Room 218', 'Room 313', 'Room 314', 'Room 315'];
+  
+  // Sort rooms by room number
+  rooms.sort((a, b) => {
+    const aNum = parseInt(a.replace(/\D/g, ''));
+    const bNum = parseInt(b.replace(/\D/g, ''));
+    return aNum - bNum;
+  });
   
   // Generate available time slots for the next 14 days
   const availableEvents: AvailableEvent[] = [];
@@ -69,9 +105,13 @@ export const processEvents = (bookedEvents: BookedEvent[]): ProcessEventsResult 
         
         // If not booked, add it as an available slot
         if (!isBooked) {
+          // Create a formatted date string for the title
+          const dayFormatted = format(slotStart, 'EEE');
+          const timeFormatted = format(slotStart, 'h:mm a');
+          
           availableEvents.push({
             id: `available_${room}_${slotStart.toISOString()}`,
-            title: `Available: ${room}`,
+            title: `${room}`, // Simple title, we'll hide it in the UI
             start: slotStart,
             end: slotEnd,
             room: room,
@@ -87,7 +127,7 @@ export const processEvents = (bookedEvents: BookedEvent[]): ProcessEventsResult 
           if (bookedEvent) {
             availableEvents.push({
               id: bookedEvent.id,
-              title: `Booked: ${bookedEvent.title}`,
+              title: `${bookedEvent.title}`,  // Already has "Booked:" prefix from calendarApi.ts
               start: bookedEvent.start,
               end: bookedEvent.end,
               room: bookedEvent.room,
@@ -98,6 +138,9 @@ export const processEvents = (bookedEvents: BookedEvent[]): ProcessEventsResult 
       }
     }
   });
+  
+  // Group the rooms by floor for better filtering UI
+  const roomGroups = groupRoomsByCategory(rooms);
   
   return {
     availableRoomEvents: availableEvents,
