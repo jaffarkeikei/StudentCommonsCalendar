@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { Calendar as BigCalendar, momentLocalizer, View } from 'react-big-calendar';
 import moment from 'moment';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
@@ -22,47 +22,8 @@ interface CalendarProps {
 }
 
 export const Calendar: React.FC<CalendarProps> = ({ events }) => {
-  const [displayEvents, setDisplayEvents] = useState<Event[]>([]);
-  
-  // Effect to filter events when props change
-  useEffect(() => {
-    // If there are no events, use an empty array
-    if (!events || events.length === 0) {
-      setDisplayEvents([]);
-      return;
-    }
-
-    // Check if we're filtering for a specific room
-    const uniqueRooms = Array.from(new Set(events.map(event => event.room)));
-    
-    // If there's only one room in the events array, we're filtering for that room
-    const isRoomFiltered = uniqueRooms.length === 1 && uniqueRooms[0] !== 'all';
-    
-    if (isRoomFiltered) {
-      // Only showing events for that one room
-      setDisplayEvents(events);
-      console.log(`Showing ${events.length} events for room ${uniqueRooms[0]}`);
-      
-      // Log details about booked events
-      const bookedEvents = events.filter(event => !event.isAvailable);
-      console.log(`Booked events for ${uniqueRooms[0]}: ${bookedEvents.length}`);
-      bookedEvents.forEach((event, i) => {
-        console.log(`Booked event ${i+1}: ${event.title} on ${event.start.toLocaleString()} - ${event.end.toLocaleString()}`);
-      });
-    } else {
-      // Showing all rooms - include both available and booked events
-      setDisplayEvents(events);
-      console.log(`Showing all ${events.length} events for ${uniqueRooms.length} rooms`);
-    }
-  }, [events]);
-  
   // Custom event styling
   const eventStyleGetter = (event: Event) => {
-    // Log styling decisions for each event
-    if (!event.isAvailable) {
-      console.log(`Styling booked event: ${event.title} for room ${event.room} (isAvailable: ${event.isAvailable})`);
-    }
-    
     // For available rooms, use a seamless green background
     // For booked rooms, show a contrasting red
     const style = {
@@ -101,7 +62,7 @@ export const Calendar: React.FC<CalendarProps> = ({ events }) => {
     );
   };
 
-  if (!displayEvents || displayEvents.length === 0) {
+  if (!events || events.length === 0) {
     return (
       <div className="h-[700px] bg-white shadow-md rounded-lg p-4 flex justify-center items-center">
         <div className="text-center text-gray-500">
@@ -157,7 +118,7 @@ export const Calendar: React.FC<CalendarProps> = ({ events }) => {
       `}</style>
       <BigCalendar
         localizer={localizer}
-        events={displayEvents}
+        events={events}
         startAccessor="start"
         endAccessor="end"
         style={{ height: '100%' }}
@@ -167,7 +128,7 @@ export const Calendar: React.FC<CalendarProps> = ({ events }) => {
         tooltipAccessor={(event) => 
           event.isAvailable 
             ? `Available: ${event.room}` 
-            : `Booked: ${event.title}`
+            : `Booked: ${event.title.replace('Booked: ', '')}`
         }
         components={{
           event: EventComponent as any

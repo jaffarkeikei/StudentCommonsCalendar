@@ -1,6 +1,7 @@
-import { addDays, format, isSameDay, parseISO } from 'date-fns';
+import { addDays, format, isSameDay, parseISO, differenceInDays } from 'date-fns';
 
-interface BookedEvent {
+// Define the interfaces for our events
+export interface BookedEvent {
   id: string;
   title: string;
   start: Date;
@@ -9,7 +10,7 @@ interface BookedEvent {
   isBooked: boolean;
 }
 
-interface AvailableEvent {
+export interface AvailableEvent {
   id: string;
   title: string;
   start: Date;
@@ -18,7 +19,7 @@ interface AvailableEvent {
   isAvailable: boolean;
 }
 
-interface ProcessEventsResult {
+export interface ProcessEventsResult {
   availableRoomEvents: AvailableEvent[];
   roomsList: string[];
 }
@@ -72,29 +73,31 @@ const groupRoomsByCategory = (rooms: string[]): { [category: string]: string[] }
 /**
  * Process booked events to generate available time slots
  * with improved grouping and display
+ * @param bookedEvents The booked events from the calendar
+ * @param startDate Optional start date to limit the range (defaults to today)
+ * @param endDate Optional end date to limit the range (defaults to 7 days from start)
  */
-export const processEvents = (bookedEvents: BookedEvent[]): ProcessEventsResult => {
+export const processEvents = (
+  bookedEvents: BookedEvent[], 
+  startDate?: Date, 
+  endDate?: Date
+): ProcessEventsResult => {
   // Log incoming events for debugging
   console.log(`Processing ${bookedEvents.length} booked events`);
   
-  // Look for Room 538 events
-  const room538Events = bookedEvents.filter(event => event.room === 'Room 538');
-  console.log(`Found ${room538Events.length} events for Room 538 in input`);
+  // Set default date range if not provided
+  const start = startDate || new Date();
+  // Reset time to start of day
+  start.setHours(0, 0, 0, 0);
   
-  // Check for March 6 events specifically
-  const march6Events = bookedEvents.filter(event => 
-    event.start.getMonth() === 2 && // JavaScript months are 0-indexed, so March is 2
-    event.start.getDate() === 6
-  );
-  console.log(`Found ${march6Events.length} events for March 6`);
+  const end = endDate || addDays(start, 7);
+  // Reset time to end of day
+  end.setHours(23, 59, 59, 999);
   
-  // Log the March 6 Room 538 events in detail
-  const march6Room538Events = bookedEvents.filter(event => 
-    event.room === 'Room 538' && 
-    event.start.getMonth() === 2 && 
-    event.start.getDate() === 6
-  );
-  console.log('March 6 Room 538 events:', march6Room538Events);
+  console.log(`Generating available slots from ${format(start, 'yyyy-MM-dd')} to ${format(end, 'yyyy-MM-dd')}`);
+  
+  // Calculate number of days in the range
+  const dayCount = differenceInDays(end, start) + 1;
   
   // Extract unique rooms from the booked events
   const uniqueRooms = Array.from(new Set(bookedEvents.map((event) => event.room)))
@@ -116,17 +119,12 @@ export const processEvents = (bookedEvents: BookedEvent[]): ProcessEventsResult 
   
   // New approach: Create contiguous blocks of availability
   const availableEvents: AvailableEvent[] = [];
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
 
   // For each room, generate available time slots
   rooms.forEach((room) => {
-    // For each day in the next 14 days
-    for (let dayOffset = 0; dayOffset < 14; dayOffset++) {
-      const currentDay = addDays(today, dayOffset);
-      
-      // Identify March 6 specifically for logging
-      const isMarch6 = currentDay.getMonth() === 2 && currentDay.getDate() === 6;
+    // For each day in the specified range
+    for (let dayOffset = 0; dayOffset < dayCount; dayOffset++) {
+      const currentDay = addDays(start, dayOffset);
       
       // Create a sorted array of booked periods for this room and day
       const bookedPeriodsForDay = bookedEvents
@@ -136,12 +134,6 @@ export const processEvents = (bookedEvents: BookedEvent[]): ProcessEventsResult 
           isSameDay(event.end, currentDay))
         )
         .sort((a, b) => a.start.getTime() - b.start.getTime());
-      
-      // Special logging for March 6 and Room 538
-      if (isMarch6 && room === 'Room 538') {
-        console.log(`Processing March 6 for Room 538. Found ${bookedPeriodsForDay.length} bookings:`);
-        console.log(bookedPeriodsForDay);
-      }
       
       // If there are no bookings, create one full-day available slot
       if (bookedPeriodsForDay.length === 0) {
@@ -159,10 +151,6 @@ export const processEvents = (bookedEvents: BookedEvent[]): ProcessEventsResult 
           room: room,
           isAvailable: true
         });
-        
-        if (isMarch6 && room === 'Room 538') {
-          console.log('Created full-day available slot for Room 538 on March 6');
-        }
       } else {
         // There are some bookings - create available slots around them
         let lastEndTime = new Date(currentDay);
@@ -181,10 +169,6 @@ export const processEvents = (bookedEvents: BookedEvent[]): ProcessEventsResult 
               room: room,
               isAvailable: true
             });
-            
-            if (isMarch6 && room === 'Room 538') {
-              console.log(`Created available slot for Room 538 on March 6: ${lastEndTime.toTimeString()} - ${bookedEvent.start.toTimeString()}`);
-            }
           }
           
           // Add the booked event with isAvailable: false
@@ -196,10 +180,6 @@ export const processEvents = (bookedEvents: BookedEvent[]): ProcessEventsResult 
             room: bookedEvent.room,
             isAvailable: false
           });
-          
-          if (isMarch6 && room === 'Room 538') {
-            console.log(`Added booked event for Room 538 on March 6: ${bookedEvent.start.toTimeString()} - ${bookedEvent.end.toTimeString()}`);
-          }
           
           // Update last end time
           lastEndTime = new Date(bookedEvent.end);
@@ -218,27 +198,10 @@ export const processEvents = (bookedEvents: BookedEvent[]): ProcessEventsResult 
             room: room,
             isAvailable: true
           });
-          
-          if (isMarch6 && room === 'Room 538') {
-            console.log(`Created available slot for Room 538 on March 6 after last booking: ${lastEndTime.toTimeString()} - ${dayEnd.toTimeString()}`);
-          }
         }
       }
     }
   });
-  
-  // Find and log all events for Room 538 for debugging
-  const room538ProcessedEvents = availableEvents.filter(event => event.room === 'Room 538');
-  console.log(`Generated ${room538ProcessedEvents.length} events for Room 538 (available + booked)`);
-  
-  const room538BookedEvents = room538ProcessedEvents.filter(event => !event.isAvailable);
-  console.log(`Generated ${room538BookedEvents.length} BOOKED events for Room 538`);
-  
-  // Log all March 6 events
-  const march6ProcessedEvents = availableEvents.filter(event => 
-    event.start.getMonth() === 2 && event.start.getDate() === 6
-  );
-  console.log(`Generated ${march6ProcessedEvents.length} events for March 6 (all rooms, available + booked)`);
   
   // Log diagnostic information
   console.log(`Total events processed: ${availableEvents.length}`);
@@ -247,6 +210,8 @@ export const processEvents = (bookedEvents: BookedEvent[]): ProcessEventsResult 
   
   // Group the rooms by floor for better filtering UI
   const roomGroups = groupRoomsByCategory(rooms);
+  
+  console.log('Room groupings:', roomGroups);
   
   return {
     availableRoomEvents: availableEvents,

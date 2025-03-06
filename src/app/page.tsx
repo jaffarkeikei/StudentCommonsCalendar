@@ -7,7 +7,7 @@ import { RoomDetails } from '../components/RoomDetails';
 import { fetchCalendarData } from '../utils/calendarApi';
 import { processEvents } from '../utils/eventProcessor';
 import Header from '../components/Header';
-import { format } from 'date-fns';
+import { format, addDays } from 'date-fns';
 
 // Function to format date consistently between server and client
 const formatDate = (date: Date): string => {
@@ -33,171 +33,208 @@ export default function Home() {
   const [error, setError] = useState('');
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [formattedDate, setFormattedDate] = useState<string>('');
+  const [currentDateRange, setCurrentDateRange] = useState<{start: Date, end: Date}>({
+    start: new Date(),
+    end: new Date()
+  });
 
+  // Initialize the date range to the current week
   useEffect(() => {
-    const loadCalendarData = async () => {
-      try {
-        setLoading(true);
-        setError('');
-        
-        // Fetch events data from the Google Calendar
-        const eventsData = await fetchCalendarData();
-        
-        if (!eventsData || eventsData.length === 0) {
-          throw new Error('No events found in the calendar');
-        }
-        
-        console.log('Fetched events:', eventsData.length);
-        
-        // Process the events to determine available rooms
-        const { availableRoomEvents, roomsList } = processEvents(eventsData);
-        
-        console.log('Available room events:', availableRoomEvents.length);
-        console.log('Rooms list:', roomsList);
-        
-        const now = new Date();
-        setAvailableEvents(availableRoomEvents);
-        setFilteredEvents(availableRoomEvents);
-        setRooms(roomsList);
-        setLastUpdated(now);
-        setFormattedDate(formatDate(now));
-        setLoading(false);
-      } catch (err) {
-        console.error('Failed to load calendar data:', err);
-        setError('Failed to load calendar data. Please try again later.');
-        setLoading(false);
-      }
-    };
-
-    loadCalendarData();
+    const today = new Date();
+    const start = new Date(today);
+    const end = new Date(today);
+    
+    // Start of week (Sunday)
+    start.setDate(start.getDate() - start.getDay());
+    // End of week (Saturday)
+    end.setDate(end.getDate() + (6 - end.getDay()));
+    
+    // Set hours to beginning and end of day
+    start.setHours(0, 0, 0, 0);
+    end.setHours(23, 59, 59, 999);
+    
+    setCurrentDateRange({ start, end });
   }, []);
 
-  // Filter events based on selected room
+  // Load calendar data whenever the date range changes
+  useEffect(() => {
+    if (currentDateRange.start && currentDateRange.end) {
+      loadCalendarData(currentDateRange.start, currentDateRange.end);
+    }
+  }, [currentDateRange]);
+
+  // Load calendar data
+  const loadCalendarData = async (start: Date, end: Date) => {
+    try {
+      setLoading(true);
+      console.log(`Loading calendar data for ${format(start, 'yyyy-MM-dd')} to ${format(end, 'yyyy-MM-dd')}`);
+      
+      // Fetch events from Google Calendar
+      const events = await fetchCalendarData(start, end);
+      
+      // Process events to generate available time slots
+      const { availableRoomEvents, roomsList } = processEvents(events, start, end);
+      
+      setAvailableEvents(availableRoomEvents);
+      setRooms(roomsList);
+      setLastUpdated(new Date());
+      setFormattedDate(formatDate(new Date()));
+      
+      // If a room is selected, filter events for that room
+      if (selectedRoom !== 'all') {
+        setFilteredEvents(availableRoomEvents.filter(event => event.room === selectedRoom));
+      } else {
+        setFilteredEvents(availableRoomEvents);
+      }
+      
+      setError('');
+    } catch (err) {
+      console.error('Error loading calendar data:', err);
+      setError('Failed to load calendar data. Please try again later.');
+      
+      // Retry after a delay
+      setTimeout(() => {
+        if (loading) {
+          loadCalendarData(start, end);
+        }
+      }, 5000);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Handle date range change from calendar
+  const handleDateRangeChange = (start: Date, end: Date) => {
+    console.log(`Date range changed: ${format(start, 'yyyy-MM-dd')} to ${format(end, 'yyyy-MM-dd')}`);
+    setCurrentDateRange({ start, end });
+  };
+
+  // Handle room filter change
   const handleRoomFilter = (room: string) => {
     setSelectedRoom(room);
     
     if (room === 'all') {
-      // Show all events
+      console.log('Showing all rooms');
       setFilteredEvents(availableEvents);
-      console.log('Showing all events:', availableEvents.length);
     } else {
-      // Only include events that are for the selected room
-      const roomEvents = availableEvents.filter(event => event.room === room);
-      
-      // Log details for debugging
       console.log(`Filtering for room: ${room}`);
-      console.log(`Total events available: ${availableEvents.length}`);
-      console.log(`Events for this room: ${roomEvents.length}`);
-      
-      // Log breakdown of event types
-      const availableSlotsCount = roomEvents.filter(event => event.isAvailable).length;
-      const bookedSlotsCount = roomEvents.filter(event => !event.isAvailable).length;
-      console.log(`Available slots for ${room}: ${availableSlotsCount}`);
-      console.log(`Booked slots for ${room}: ${bookedSlotsCount}`);
-      
-      // Log specific details about booked events
-      const bookedEvents = roomEvents.filter(event => !event.isAvailable);
-      bookedEvents.forEach((event, i) => {
-        console.log(`Booked event ${i+1}: "${event.title}" at ${format(event.start, 'MMM d, h:mm a')} - ${format(event.end, 'h:mm a')}`);
-      });
-      
-      if (roomEvents.length > 0) {
-        console.log('Sample event:', roomEvents[0]);
-      }
-      
+      const roomEvents = availableEvents.filter(event => event.room === room);
       setFilteredEvents(roomEvents);
     }
   };
 
-  const handleRetry = () => {
-    setLoading(true);
-    setError('');
-    // Trigger a re-fetch of the calendar data
-    const loadCalendarData = async () => {
-      try {
-        const eventsData = await fetchCalendarData();
-        const { availableRoomEvents, roomsList } = processEvents(eventsData);
-        
-        const now = new Date();
-        setAvailableEvents(availableRoomEvents);
-        setFilteredEvents(availableRoomEvents);
-        setRooms(roomsList);
-        setLastUpdated(now);
-        setFormattedDate(formatDate(now));
-        setLoading(false);
-      } catch (err) {
-        console.error('Failed to load calendar data on retry:', err);
-        setError('Failed to load calendar data. Please try again later.');
-        setLoading(false);
-      }
-    };
-
-    loadCalendarData();
-  };
+  // Calculate statistics
+  const availableCount = filteredEvents.filter(event => event.isAvailable).length;
+  const bookedCount = filteredEvents.filter(event => !event.isAvailable).length;
+  const totalCount = filteredEvents.length;
+  
+  // Format date range for display
+  const dateRangeDisplay = currentDateRange.start && currentDateRange.end
+    ? `${format(currentDateRange.start, 'MMM d')} - ${format(currentDateRange.end, 'MMM d, yyyy')}`
+    : 'Loading...';
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-7xl">
+    <div className="min-h-screen bg-gray-50">
       <Header />
       
-      {error ? (
-        <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-6 rounded shadow-md">
-          <div className="flex items-center">
-            <svg className="h-6 w-6 mr-3 text-red-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            <span className="font-medium">{error}</span>
-          </div>
-          <div className="mt-3">
-            <button 
-              onClick={handleRetry}
-              className="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded transition-colors"
-            >
-              Retry Loading Calendar
-            </button>
-          </div>
+      <main className="container mx-auto px-4 py-8">
+        <div className="mb-6">
+          <h1 className="text-3xl font-bold text-gray-800">Student Commons Room Availability</h1>
+          <p className="text-gray-600 mt-2">
+            Find available rooms and check the schedule for the Student Commons.
+          </p>
+          
+          {lastUpdated && (
+            <p className="text-sm text-gray-500 mt-1">
+              Last updated: {formattedDate}
+            </p>
+          )}
         </div>
-      ) : loading ? (
-        <div className="flex flex-col justify-center items-center h-64 bg-white shadow-md rounded-lg">
-          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
-          <span className="mt-4 text-lg text-gray-600">Loading available rooms...</span>
-        </div>
-      ) : (
-        <div className="flex flex-col md:flex-row gap-6">
-          <div className="md:w-1/4">
-            <RoomFilter 
-              rooms={rooms}
-              selectedRoom={selectedRoom}
-              onSelectRoom={handleRoomFilter}
-            />
-            
-            {selectedRoom !== 'all' && (
-              <RoomDetails
-                selectedRoom={selectedRoom}
-                events={filteredEvents}
-              />
-            )}
-            
-            <div className="bg-white shadow-md rounded-lg p-4 mt-4">
-              <h3 className="font-medium text-gray-800 mb-2">Stats</h3>
-              <div className="text-sm">
-                <p className="mb-1">Total Available Slots: <span className="font-medium">{availableEvents.filter((e) => e.isAvailable).length}</span></p>
-                <p className="mb-1">Total Booked Slots: <span className="font-medium">{availableEvents.filter((e) => !e.isAvailable).length}</span></p>
-                <p className="mb-1">Total Rooms: <span className="font-medium">{rooms.length}</span></p>
-                <p className="mb-1">Filtered Results: <span className="font-medium">{filteredEvents.length}</span></p>
-                {formattedDate && (
-                  <p className="text-xs text-gray-500 mt-2">
-                    Last updated: {formattedDate}
-                  </p>
-                )}
+        
+        {error && (
+          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-6">
+            <p>{error}</p>
+          </div>
+        )}
+        
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+          {/* Sidebar with room filter */}
+          <div className="lg:col-span-1">
+            <div className="bg-white shadow-md rounded-lg p-4">
+              <h2 className="text-xl font-semibold mb-4">Filter by Room</h2>
+              
+              {loading ? (
+                <div className="animate-pulse">
+                  <div className="h-10 bg-gray-200 rounded mb-4"></div>
+                  <div className="h-40 bg-gray-200 rounded"></div>
+                </div>
+              ) : (
+                <RoomFilter 
+                  rooms={rooms} 
+                  selectedRoom={selectedRoom} 
+                  onSelectRoom={handleRoomFilter} 
+                />
+              )}
+              
+              <div className="mt-6 pt-4 border-t border-gray-200">
+                <h3 className="text-lg font-medium mb-2">Statistics</h3>
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Date Range:</span>
+                    <span className="font-medium">{dateRangeDisplay}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Available Slots:</span>
+                    <span className="font-medium text-green-600">{availableCount}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Booked Slots:</span>
+                    <span className="font-medium text-red-600">{bookedCount}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Total Events:</span>
+                    <span className="font-medium">{totalCount}</span>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
           
-          <div className="md:w-3/4">
-            <Calendar events={filteredEvents} />
+          {/* Main content area */}
+          <div className="lg:col-span-3">
+            {/* Calendar view */}
+            <div className="bg-white shadow-md rounded-lg p-4 mb-6">
+              {loading ? (
+                <div className="animate-pulse">
+                  <div className="h-8 bg-gray-200 rounded w-1/3 mb-4"></div>
+                  <div className="h-96 bg-gray-200 rounded"></div>
+                </div>
+              ) : (
+                <Calendar 
+                  events={filteredEvents} 
+                  onDateRangeChange={handleDateRangeChange}
+                />
+              )}
+            </div>
+            
+            {/* Room details when a specific room is selected */}
+            {selectedRoom !== 'all' && (
+              <RoomDetails 
+                selectedRoom={selectedRoom} 
+                events={availableEvents} 
+              />
+            )}
           </div>
         </div>
-      )}
+      </main>
+      
+      <footer className="bg-white border-t border-gray-200 py-6 mt-12">
+        <div className="container mx-auto px-4">
+          <p className="text-center text-gray-600 text-sm">
+            &copy; {new Date().getFullYear()} Student Commons Calendar. All rights reserved.
+          </p>
+        </div>
+      </footer>
     </div>
   );
 } 
