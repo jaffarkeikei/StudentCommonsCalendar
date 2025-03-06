@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { Calendar } from '../components/Calendar';
 import { RoomFilter } from '../components/RoomFilter';
+import { RoomDetails } from '../components/RoomDetails';
 import { fetchCalendarData } from '../utils/calendarApi';
 import { processEvents } from '../utils/eventProcessor';
 import Header from '../components/Header';
@@ -146,7 +147,12 @@ export default function Home() {
               onSelectRoom={handleRoomFilter}
             />
             
-            <div className="bg-white shadow-md rounded-lg p-4">
+            <RoomDetails
+              selectedRoom={selectedRoom}
+              events={availableEvents}
+            />
+            
+            <div className="bg-white shadow-md rounded-lg p-4 mt-4">
               <h3 className="font-medium text-gray-800 mb-2">Stats</h3>
               <div className="text-sm">
                 <p className="mb-1">Total Available Slots: <span className="font-medium">{availableEvents.filter((e) => e.isAvailable).length}</span></p>
