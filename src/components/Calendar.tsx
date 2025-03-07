@@ -1,7 +1,7 @@
 'use client';
 
-import React from 'react';
-import { Calendar as BigCalendar, momentLocalizer, View } from 'react-big-calendar';
+import React, { useState } from 'react';
+import { Calendar as BigCalendar, momentLocalizer, View, NavigateAction } from 'react-big-calendar';
 import moment from 'moment';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
 
@@ -19,9 +19,73 @@ interface Event {
 
 interface CalendarProps {
   events: Event[];
+  onDateRangeChange?: (start: Date, end: Date) => void;
 }
 
-export const Calendar: React.FC<CalendarProps> = ({ events }) => {
+export const Calendar: React.FC<CalendarProps> = ({ events, onDateRangeChange }) => {
+  const [view, setView] = useState<View>('week');
+  const [date, setDate] = useState(new Date());
+  
+  // Handle navigation (next week, previous week, today)
+  const handleNavigate = (newDate: Date, view: View, action: NavigateAction) => {
+    setDate(newDate);
+    
+    // Calculate the start and end dates of the current view
+    const start = new Date(newDate);
+    const end = new Date(newDate);
+    
+    if (view === 'week') {
+      // Start of week (Sunday)
+      start.setDate(start.getDate() - start.getDay());
+      // End of week (Saturday)
+      end.setDate(end.getDate() + (6 - end.getDay()));
+    } else if (view === 'day') {
+      // Same day for day view
+    } else if (view === 'agenda') {
+      // For agenda view, show 30 days
+      end.setDate(end.getDate() + 30);
+    }
+    
+    // Reset times to start and end of days
+    start.setHours(0, 0, 0, 0);
+    end.setHours(23, 59, 59, 999);
+    
+    // Call the callback if provided
+    if (onDateRangeChange) {
+      onDateRangeChange(start, end);
+    }
+  };
+  
+  // Handle view change (week, day, agenda)
+  const handleViewChange = (newView: View) => {
+    setView(newView);
+    
+    // Re-calculate date range for the new view
+    const start = new Date(date);
+    const end = new Date(date);
+    
+    if (newView === 'week') {
+      // Start of week (Sunday)
+      start.setDate(start.getDate() - start.getDay());
+      // End of week (Saturday)
+      end.setDate(end.getDate() + (6 - end.getDay()));
+    } else if (newView === 'day') {
+      // Same day for day view
+    } else if (newView === 'agenda') {
+      // For agenda view, show 30 days
+      end.setDate(end.getDate() + 30);
+    }
+    
+    // Reset times to start and end of days
+    start.setHours(0, 0, 0, 0);
+    end.setHours(23, 59, 59, 999);
+    
+    // Call the callback if provided
+    if (onDateRangeChange) {
+      onDateRangeChange(start, end);
+    }
+  };
+  
   // Custom event styling
   const eventStyleGetter = (event: Event) => {
     // For available rooms, use a seamless green background
