@@ -179,6 +179,38 @@ export const Calendar: React.FC<CalendarProps> = ({ events, onDateRangeChange })
           font-weight: 600;
           background-color: #f9fafb;
         }
+        
+        /* Toolbar improvements */
+        .rbc-toolbar {
+          margin-bottom: 15px;
+          padding-bottom: 15px;
+          border-bottom: 1px solid #eee;
+        }
+        
+        .rbc-toolbar button {
+          color: #4b5563;
+          border: 1px solid #e5e7eb;
+          border-radius: 0.375rem;
+          padding: 0.5rem 1rem;
+          font-weight: 500;
+          transition: all 0.2s;
+        }
+        
+        .rbc-toolbar button:hover {
+          background-color: #f3f4f6;
+          border-color: #d1d5db;
+        }
+        
+        .rbc-toolbar button.rbc-active {
+          background-color: #3b82f6;
+          color: white;
+          border-color: #3b82f6;
+        }
+        
+        .rbc-toolbar button.rbc-active:hover {
+          background-color: #2563eb;
+          border-color: #2563eb;
+        }
       `}</style>
       <BigCalendar
         localizer={localizer}
@@ -189,6 +221,10 @@ export const Calendar: React.FC<CalendarProps> = ({ events, onDateRangeChange })
         eventPropGetter={eventStyleGetter}
         views={['week', 'day', 'agenda']}
         defaultView="week"
+        view={view}
+        date={date}
+        onNavigate={handleNavigate}
+        onView={handleViewChange}
         tooltipAccessor={(event) => 
           event.isAvailable 
             ? `Available: ${event.room}` 
